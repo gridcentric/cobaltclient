@@ -1,12 +1,12 @@
 Overview
 ========
 
-An extension hook for novaclient that enables it to interact with the Gridcentric endpoints.
+An extension hook for novaclient that enables it to interact with the Cobalt endpoints.
 
 Command line usage
 ==================
 
-After installing the operations provided by the Gridcentric extension will be available to the 
+After installing the operations provided by the Cobalt extension will be available to the 
 nova command line application:
 
     # Display all of the available commands of the nova script. The gridcentric bless, launch, 
@@ -44,10 +44,10 @@ nova command line application:
     Positional arguments:
       <blessed id>  ID of the blessed instance
     
-    $ nova help gc-migrate
-    usage: nova gc-migrate <instance id> <destination host>
+    $ nova help co-migrate
+    usage: nova co-migrate <instance id> <destination host>
     
-    Migrate an instance using Gridcentric VMS
+    Migrate an instance using VMS
     
     Positional arguments:
       <instance id>       ID of the instance to migrate
@@ -88,13 +88,13 @@ The novaclient hooks can also be accessed directly using the python API.
     def wait_for_status(server, status):
         while server.status != status:
             time.sleep(30)
-            server = novaclient.gridcentric.get(server.id)
+            server = novaclient.cobalt.get(server.id)
         return server
 
     def wait_until_gone(server):
         try:
             while True:
-                server = novaclient.gridcentric.get(server.id)
+                server = novaclient.cobalt.get(server.id)
                 time.sleep(10)
         except Exception, e:
             # server is no longer there.
@@ -110,14 +110,14 @@ The novaclient hooks can also be accessed directly using the python API.
     
     # Bless the server. This will return an instance of the blessed_server. We need to
     # wait until the server becomes active.
-    blessed_server = novaclient.gridcentric.bless(server)[0]
+    blessed_server = novaclient.cobalt.bless(server)[0]
     blessed_server = wait_for_status(blessed_server, "BLESSED")
     
     # Launch a new server based off of the blessed one. Note that we can do this
     # by either calling launch on the server itself, or passing the server into the
-    # gridcentric manager.
+    # cobalt manager.
     launched_server = blessed_server.launch()[0]
-    launched_server2 = novaclient.gridcentric.launch(blessed_server)[0]
+    launched_server2 = novaclient.cobalt.launch(blessed_server)[0]
     
     # list the servers that were launched from the blessed ones.
     for s in blessed_server.list_launched():

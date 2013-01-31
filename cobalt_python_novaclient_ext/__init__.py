@@ -1,4 +1,4 @@
-# Copyright 2011 GridCentric Inc.
+# Copyright 2011 Gridcentric Inc.
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -14,8 +14,8 @@
 #    under the License.
 
 """
-An extension module for novaclient that allows the `nova` application access to the gridcentric
-API extensions.
+An extension module for novaclient that allows the `nova` application access to
+the cobalt API extensions.
 """
 
 import os
@@ -89,7 +89,7 @@ def _print_server(cs, server, minimal=False):
 
 def _find_server(cs, server):
     """ Returns a sever by name or ID. """
-    return utils.find_resource(cs.gridcentric, server)
+    return utils.find_resource(cs.cobalt, server)
 
 
 #### ACTIONS ####
@@ -128,7 +128,7 @@ def do_launch(cs, args):
     else:
         availability_zone = None
 
-    launch_servers = cs.gridcentric.launch(server,
+    launch_servers = cs.cobalt.launch(server,
                                            target=args.target,
                                            name=args.name,
                                            user_data=user_data,
@@ -146,7 +146,7 @@ def do_launch(cs, args):
 def do_bless(cs, args):
     """Bless an instance."""
     server = _find_server(cs, args.server)
-    blessed_servers = cs.gridcentric.bless(server, args.name)
+    blessed_servers = cs.cobalt.bless(server, args.name)
     for server in blessed_servers:
         _print_server(cs, server)
 
@@ -154,14 +154,14 @@ def do_bless(cs, args):
 def do_discard(cs, args):
     """Discard a blessed instance."""
     server = _find_server(cs, args.blessed_server)
-    cs.gridcentric.discard(server)
+    cs.cobalt.discard(server)
 
 @utils.arg('server', metavar='<instance>', help="ID or name of the instance to migrate")
 @utils.arg('--dest', metavar='<destination host>', default=None, help="Host to migrate to")
-def do_gc_migrate(cs, args):
+def do_co_migrate(cs, args):
     """Migrate an instance using VMS."""
     server = _find_server(cs, args.server)
-    cs.gridcentric.migrate(server, args.dest)
+    cs.cobalt.migrate(server, args.dest)
 
 def _print_list(servers):
     id_col = 'ID'
@@ -173,17 +173,17 @@ def _print_list(servers):
 def do_list_launched(cs, args):
     """List instances launched from this blessed instance."""
     server = _find_server(cs, args.blessed_server)
-    _print_list(cs.gridcentric.list_launched(server))
+    _print_list(cs.cobalt.list_launched(server))
 
 @utils.arg('server', metavar='<server>', help="ID or name of the instance")
 def do_list_blessed(cs, args):
     """List instances blessed from this instance."""
     server = _find_server(cs, args.server)
-    _print_list(cs.gridcentric.list_blessed(server))
+    _print_list(cs.cobalt.list_blessed(server))
 
 @utils.arg('server', metavar='<server>', help="ID or name of the blessed instance")
 @utils.arg('output', metavar='<output>', default=None, help="Name of a file to write the exported data to.")
-def do_gc_export(cs, args):
+def do_co_export(cs, args):
     """Export a blessed instance"""
     server = _find_server(cs, args.server)
     result = server.export()
@@ -199,7 +199,7 @@ def do_gc_export(cs, args):
                               help="A file containing the exported server data")
 @utils.arg('--override', metavar='<override>',
                       help="Semicolon-separated list of parameters to override")
-def do_gc_import(cs, args):
+def do_co_import(cs, args):
     """Import a blessed instance"""
 
     # The override option can be something like this:
@@ -222,7 +222,7 @@ def do_gc_import(cs, args):
             key, value = override_arg.split('=', 1)
             override(key, value, data)
 
-    server = cs.gridcentric.import_instance(data)
+    server = cs.cobalt.import_instance(data)
     _print_server(cs, server)
 
 @utils.arg('--flavor',
@@ -298,20 +298,20 @@ def do_gc_import(cs, args):
     action="store_true",
     default=False,
     help='Blocks while instance builds so progress can be reported.')
-def do_gc_boot(cs, args):
+def do_co_boot(cs, args):
     """Boot a new server."""
 
     boot_args, boot_kwargs = shell._boot(cs, args)
 
     if args.host and 'meta' in boot_kwargs:
-        boot_kwargs['meta'].update({"gc:target_host": args.host})
+        boot_kwargs['meta'].update({"co:target_host": args.host})
     elif args.host:
-        boot_kwargs['meta'] = {"gc:target_host":args.host}
+        boot_kwargs['meta'] = {"co:target_host":args.host}
 
-    extra_boot_kwargs = utils.get_resource_manager_extra_kwargs(do_gc_boot, args)
+    extra_boot_kwargs = utils.get_resource_manager_extra_kwargs(do_co_boot, args)
     boot_kwargs.update(extra_boot_kwargs)
 
-    server = cs.gridcentric.create(*boot_args, **boot_kwargs)
+    server = cs.cobalt.create(*boot_args, **boot_kwargs)
 
     # Keep any information (like adminPass) returned by create
     info = server._info
@@ -355,7 +355,7 @@ def do_gc_boot(cs, args):
      default=None,
      metavar='<ip>',
      help="Instance IP address to use (defaults to first ssh-able).")
-def do_gc_install_agent(cs, args):
+def do_co_install_agent(cs, args):
     """Install the agent onto an instance."""
     server = _find_server(cs, args.server)
     server.install_agent(args.user,
@@ -364,9 +364,9 @@ def do_gc_install_agent(cs, args):
                          version=args.agent_version,
                          ip=args.ip)
 
-class GcServer(servers.Server):
+class CoServer(servers.Server):
     """
-    A server object extended to provide gridcentric capabilities
+    A server object extended to provide cobalt capabilities
     """
 
     def launch(self, target="0", name=None, user_data=None, guest_params={},
@@ -405,15 +405,15 @@ class GcServer(servers.Server):
         self.manager.install_agent(self, user, key_path, location=location,
                                     version=version, ip=ip)
 
-class GcServerManager(servers.ServerManager):
-    resource_class = GcServer
+class CoServerManager(servers.ServerManager):
+    resource_class = CoServer
 
     def __init__(self, client, *args, **kwargs):
         servers.ServerManager.__init__(self, client, *args, **kwargs)
 
-        # Make sure this instance is available as gridcentric.
-        if not(hasattr(client, 'gridcentric')):
-            setattr(client, 'gridcentric', self)
+        # Make sure this instance is available as cobalt.
+        if not(hasattr(client, 'cobalt')):
+            setattr(client, 'cobalt', self)
 
     # Capabilities must be computed lazily because self.api.client isn't
     # available in __init__
@@ -430,7 +430,7 @@ class GcServerManager(servers.ServerManager):
         return set(requirements) <= set(self.capabilities)
 
     def get_info(self):
-        url = '/gcinfo'
+        url = '/cobaltinfo'
         res = self.api.client.get(url)[1]
         return res
 
@@ -457,37 +457,37 @@ class GcServerManager(servers.ServerManager):
 
             params['user_data'] = base64.b64encode(real_user_data)
 
-        header, info = self._action("gc_launch", base.getid(server), params)
+        header, info = self._action("co_launch", base.getid(server), params)
         return [self.get(server['id']) for server in info]
 
     def bless(self, server, name=None):
         params = {'name': name}
-        header, info = self._action("gc_bless", base.getid(server), params)
+        header, info = self._action("co_bless", base.getid(server), params)
         return [self.get(server['id']) for server in info]
 
     def discard(self, server):
-        return self._action("gc_discard", base.getid(server))
+        return self._action("co_discard", base.getid(server))
 
     def migrate(self, server, dest=None):
         params = {}
         if dest != None:
             params['dest'] = dest
-        return self._action("gc_migrate", base.getid(server), params)
+        return self._action("co_migrate", base.getid(server), params)
 
     def list_launched(self, server):
-        header, info = self._action("gc_list_launched", base.getid(server))
+        header, info = self._action("co_list_launched", base.getid(server))
         return [self.get(server['id']) for server in info]
 
     def list_blessed(self, server):
-        header, info = self._action("gc_list_blessed", base.getid(server))
+        header, info = self._action("co_list_blessed", base.getid(server))
         return [self.get(server['id']) for server in info]
 
     def export(self, server):
-        header, info = self._action("gc_export", server.id)
+        header, info = self._action("co_export", server.id)
         return info
 
     def import_instance(self, data):
-        url = "/gc-import-server"
+        url = "/co-import-server"
         body = {'data': data}
 
         return self._create(url, body, 'server')
@@ -515,7 +515,7 @@ class GcServerManager(servers.ServerManager):
             scheduler_hints=scheduler_hints, config_drive=config_drive,
             **kwargs)
 
-        resource_url = "/gcservers"
+        resource_url = "/coservers"
         boot_kwargs['nics'] = nics
         response_key = "server"
         return self._boot(resource_url, response_key, *boot_args,

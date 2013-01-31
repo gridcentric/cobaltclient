@@ -1,4 +1,4 @@
-# Copyright 2011 GridCentric Inc.
+# Copyright 2011 Gridcentric Inc.
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -29,11 +29,11 @@ elif setup == "distutils":
 else:
     raise Exception("Unknown __SETUP tools specified.")
 
-setup(name='gridcentric_python_novaclient_ext',
+setup(name='cobalt_python_novaclient_ext',
       version=os.getenv('VERSION', '1.0'),
-      description='GridCentric extension for OS novaclient.',
-      author='GridCentric',
+      description='Cobalt extension for OS novaclient.',
+      author='Gridcentric',
       author_email='support@gridcentric.com',
       url='http://www.gridcentric.com/',
       install_requires=['python-novaclient'],
-      packages=['gridcentric_python_novaclient_ext'])
+      packages=['cobalt_python_novaclient_ext'])

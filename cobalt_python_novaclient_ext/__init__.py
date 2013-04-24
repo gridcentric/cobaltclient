@@ -91,10 +91,18 @@ def _find_server(cs, server):
     """ Returns a sever by name or ID. """
     return utils.find_resource(cs.cobalt, server)
 
+def inherit_args(inherit_from_fn):
+    """Decorator to inherit all of the utils.arg decorated agruments from
+    another function.
+    """
+    def do_inherit(fn):
+        if hasattr(inherit_from_fn, 'arguments'):
+            fn.arguments = inherit_from_fn.arguments
+        return fn
+    return do_inherit
 
 #### ACTIONS ####
-
-@utils.arg('blessed_server', metavar='<blessed instance>', help="ID or name of the blessed instance")
+@utils.arg('blessed_server', metavar='<live image>', help="ID or name of the live-image")
 @utils.arg('--target', metavar='<target memory>', default='0', help="The memory target of the launched instance")
 @utils.arg('--name', metavar='<instance name>', default=None, help='The name of the launched instance')
 @utils.arg('--user_data', metavar='<user-data>', default=None,
@@ -104,8 +112,8 @@ def _find_server(cs, server):
 @utils.arg('--num-instances', metavar='<number>', default='1', help='Launch multiple instances at a time')
 @utils.arg('--key-name', metavar='<key name>', default=None, help='Key name of keypair that should be created earlier with the command keypair-add')
 @utils.arg('--params', action='append', default=[], metavar='<key=value>', help='Guest parameters to send to vms-agent')
-def do_launch(cs, args):
-    """Launch a new instance."""
+def do_live_image_start(cs, args):
+    """Start a new instance from a live-image."""
     server = _find_server(cs, args.blessed_server)
     guest_params = {}
     for param in args.params:
@@ -128,33 +136,48 @@ def do_launch(cs, args):
     else:
         availability_zone = None
 
-    launch_servers = cs.cobalt.launch(server,
-                                           target=args.target,
-                                           name=args.name,
-                                           user_data=user_data,
-                                           guest_params=guest_params,
-                                           security_groups=security_groups,
-                                           availability_zone=availability_zone,
-                                           num_instances=int(args.num_instances),
-                                           key_name=args.key_name)
+    launch_servers = cs.cobalt.start_live_image(server,
+        target=args.target,
+        name=args.name,
+        user_data=user_data,
+        guest_params=guest_params,
+        security_groups=security_groups,
+        availability_zone=availability_zone,
+        num_instances=int(args.num_instances),
+        key_name=args.key_name)
 
     for server in launch_servers:
         _print_server(cs, server)
 
-@utils.arg('server', metavar='<instance>', help="ID or name of the instance to bless")
-@utils.arg('--name', metavar='<name>', default=None, help="The name of the new blessed instance")
-def do_bless(cs, args):
-    """Bless an instance."""
+@inherit_args(do_live_image_start)
+def do_launch(cs, args):
+    """DEPRECATED! Use live-image-start instead."""
+    do_live_image_start(cs, args)
+
+@utils.arg('server', metavar='<instance>', help="ID or name of the instance from which to create the live-image")
+@utils.arg('--name', metavar='<name>', default=None, help="The name of the live-image")
+def do_live_image_create(cs, args):
+    """Creates a new live-image from a running instance."""
     server = _find_server(cs, args.server)
-    blessed_servers = cs.cobalt.bless(server, args.name)
+    blessed_servers = cs.cobalt.create_live_image(server, args.name)
     for server in blessed_servers:
         _print_server(cs, server)
 
-@utils.arg('blessed_server', metavar='<blessed instance>', help="ID or name of the blessed instance")
-def do_discard(cs, args):
-    """Discard a blessed instance."""
+@inherit_args(do_live_image_create)
+def do_bless(cs, args):
+    """DEPRECATED! Use live-image-create instead."""
+    do_live_image_create(cs, args)
+
+@utils.arg('blessed_server', metavar='<live-image>', help="ID or name of the live-image")
+def do_live_image_delete(cs, args):
+    """Delete a live image."""
     server = _find_server(cs, args.blessed_server)
-    cs.cobalt.discard(server)
+    cs.cobalt.delete_live_image(server)
+
+@inherit_args(do_live_image_delete)
+def do_discard(cs, args):
+    """DEPRECATED! Use live-image-delete instead."""
+    do_live_image_delete(cs, args)
 
 @utils.arg('server', metavar='<instance>', help="ID or name of the instance to migrate")
 @utils.arg('--dest', metavar='<destination host>', default=None, help="Host to migrate to")
@@ -163,28 +186,43 @@ def do_co_migrate(cs, args):
     server = _find_server(cs, args.server)
     cs.cobalt.migrate(server, args.dest)
 
+@inherit_args(do_co_migrate)
+def do_gc_migrate(cs, args):
+    """DEPRECATED! Use co-migrate instead."""
+    do_co_migrate(cs, args)
+
 def _print_list(servers):
     id_col = 'ID'
     columns = [id_col, 'Name', 'Status', 'Networks']
     formatters = {'Networks':utils._format_servers_list_networks}
     utils.print_list(servers, columns, formatters)
 
-@utils.arg('blessed_server', metavar='<blessed instance>', help="ID or name of the blessed instance")
-def do_list_launched(cs, args):
-    """List instances launched from this blessed instance."""
+@utils.arg('blessed_server', metavar='<live-image>', help="ID or name of the live-image")
+def do_live_image_servers(cs, args):
+    """List instances started from this live-image."""
     server = _find_server(cs, args.blessed_server)
-    _print_list(cs.cobalt.list_launched(server))
+    _print_list(cs.cobalt.list_live_image_servers(server))
+
+@inherit_args(do_live_image_servers)
+def do_list_launched(cs, args):
+    """DEPRECATED! Use live-image-servers instead."""
+    do_live_image_servers(cs, args)
 
 @utils.arg('server', metavar='<server>', help="ID or name of the instance")
-def do_list_blessed(cs, args):
-    """List instances blessed from this instance."""
+def do_live_image_list(cs, args):
+    """List the live images of this instance."""
     server = _find_server(cs, args.server)
-    _print_list(cs.cobalt.list_blessed(server))
+    _print_list(cs.cobalt.list_live_images(server))
 
-@utils.arg('server', metavar='<server>', help="ID or name of the blessed instance")
+@inherit_args(do_live_image_list)
+def do_list_blessed(cs, args):
+    """DEPRECATED! Use live-image-list instead."""
+    do_live_image_list(cs, args)
+
+@utils.arg('server', metavar='<live-image>', help="ID or name of the live-image")
 @utils.arg('output', metavar='<output>', default=None, help="Name of a file to write the exported data to.")
-def do_co_export(cs, args):
-    """Export a blessed instance"""
+def do_live_image_export(cs, args):
+    """Export a live-image"""
     server = _find_server(cs, args.server)
     result = server.export()
 
@@ -199,8 +237,8 @@ def do_co_export(cs, args):
                               help="A file containing the exported server data")
 @utils.arg('--override', metavar='<override>',
                       help="Semicolon-separated list of parameters to override")
-def do_co_import(cs, args):
-    """Import a blessed instance"""
+def do_live_image_import(cs, args):
+    """Import a live-image"""
 
     # The override option can be something like this:
     # export_image_id=THE-ID;security_groups=sg1,sg2;fields.display_name=foo
@@ -224,115 +262,6 @@ def do_co_import(cs, args):
 
     server = cs.cobalt.import_instance(data)
     _print_server(cs, server)
-
-@utils.arg('--flavor',
-     default=None,
-     metavar='<flavor>',
-     help="Flavor ID (see 'nova flavor-list').")
-@utils.arg('--image',
-     default=None,
-     metavar='<image>',
-     help="Image ID (see 'nova image-list'). ")
-@utils.arg('--host',
-            default=None,
-            metavar='<host>',
-            help="The host on which to boot the instance.")
-@utils.arg('--meta',
-     metavar="<key=value>",
-     action='append',
-     default=[],
-     help="Record arbitrary key/value metadata to /meta.js "\
-          "on the new server. Can be specified multiple times.")
-@utils.arg('--file',
-     metavar="<dst-path=src-path>",
-     action='append',
-     dest='files',
-     default=[],
-     help="Store arbitrary files from <src-path> locally to <dst-path> "\
-          "on the new server. You may store up to 5 files.")
-@utils.arg('--key_name',
-     metavar='<key_name>',
-     help="Key name of keypair that should be created earlier with \
-           the command keypair-add")
-@utils.arg('name', metavar='<name>', help='Name for the new server')
-@utils.arg('--user_data',
-     default=None,
-     metavar='<user-data>',
-     help="user data file to pass to be exposed by the metadata server.")
-@utils.arg('--availability_zone',
-     default=None,
-     metavar='<availability-zone>',
-     help="The availability zone for instance placement.")
-@utils.arg('--security_groups',
-     default=None,
-     metavar='<security_groups>',
-     help="comma separated list of security group names.")
-@utils.arg('--block_device_mapping',
-     metavar="<dev_name=mapping>",
-     action='append',
-     default=[],
-     help="Block device mapping in the format "
-         "<dev_name=<id>:<type>:<size(GB)>:<delete_on_terminate>.")
-@utils.arg('--hint',
-        action='append',
-        dest='scheduler_hints',
-        default=[],
-        metavar='<key=value>',
-        help="Send arbitrary key/value pairs to the scheduler for custom use.")
-@utils.arg('--nic',
-     metavar="<net-id=net-uuid,v4-fixed-ip=ip-addr>",
-     action='append',
-     dest='nics',
-     default=[],
-     help="Create a NIC on the server.\n"
-           "Specify option multiple times to create multiple NICs.\n"
-           "net-id: attach NIC to network with this UUID (optional)\n"
-           "v4-fixed-ip: IPv4 fixed address for NIC (optional).")
-@utils.arg('--config-drive',
-     metavar="<value>",
-     dest='config_drive',
-     default=False,
-     help="Enable config drive")
-@utils.arg('--poll',
-    dest='poll',
-    action="store_true",
-    default=False,
-    help='Blocks while instance builds so progress can be reported.')
-def do_co_boot(cs, args):
-    """Boot a new server."""
-
-    boot_args, boot_kwargs = shell._boot(cs, args)
-
-    if args.host and 'meta' in boot_kwargs:
-        boot_kwargs['meta'].update({"co:target_host": args.host})
-    elif args.host:
-        boot_kwargs['meta'] = {"co:target_host":args.host}
-
-    extra_boot_kwargs = utils.get_resource_manager_extra_kwargs(do_co_boot, args)
-    boot_kwargs.update(extra_boot_kwargs)
-
-    server = cs.cobalt.create(*boot_args, **boot_kwargs)
-
-    # Keep any information (like adminPass) returned by create
-    info = server._info
-    server = cs.servers.get(info['id'])
-    info.update(server._info)
-
-    flavor = info.get('flavor', {})
-    flavor_id = flavor.get('id', '')
-    info['flavor'] = shell._find_flavor(cs, flavor_id).name
-
-    image = info.get('image', {})
-    image_id = image.get('id', '')
-    info['image'] = shell._find_image(cs, image_id).name
-
-    info.pop('links', None)
-    info.pop('addresses', None)
-
-    utils.print_dict(info)
-
-    if args.poll:
-        shell._poll_for_status(cs.servers.get, info['id'], 'building', ['active'])
 
 @utils.arg('server', metavar='<instance>', help="ID or name of the instance to install on")
 @utils.arg('--user',
@@ -364,12 +293,21 @@ def do_co_install_agent(cs, args):
                          version=args.agent_version,
                          ip=args.ip)
 
+@inherit_args(do_co_install_agent)
+def do_gc_install_agent(cs, args):
+    """ DEPRECATED! Use co-install-agent instead."""
+    do_co_install_agent(cs, args)
+
 class CoServer(servers.Server):
     """
     A server object extended to provide cobalt capabilities
     """
 
-    def launch(self, target="0", name=None, user_data=None, guest_params={},
+    def launch(self, *args, **kwargs):
+        """ Deprecated. Please use the start_live_image(...). """
+        return self.start_live_image(*args, **kwargs)
+
+    def start_live_image(self, target="0", name=None, user_data=None, guest_params={},
                security_groups=None, availability_zone=None, num_instances=1,
                key_name=None):
         return self.manager.launch(self,
@@ -382,19 +320,35 @@ class CoServer(servers.Server):
                                    num_instances=num_instances,
                                    key_name=key_name)
 
-    def bless(self, name=None):
+    def bless(self, *args, **kwargs):
+        """ Deprecated. Please use create_live_image(...). """
+        return self.create_live_image(*args, **kwargs)
+
+    def create_live_image(self, name=None):
         return self.manager.bless(self, name)
 
-    def discard(self):
+    def discard(self, *args, **kwargs):
+        """ Deprecated. Please use delete_live_image(...). """
+        self.delete_live_image(*args, **kwargs)
+
+    def delete_live_image(self):
         self.manager.discard(self)
 
     def migrate(self, dest=None):
         self.manager.migrate(self, dest)
 
-    def list_launched(self):
+    def list_launched(self, *args, **kwargs):
+        """ Deprecated. Please use list_servers(...)."""
+        return self.list_servers(*args, **kwargs)
+
+    def list_servers(self):
         return self.manager.list_launched(self)
 
-    def list_blessed(self):
+    def list_blessed(self, *args, **kwargs):
+        """ Deprecated. Please use list_live_images(...)."""
+        return self.list_live_images(*args, **kwargs)
+
+    def list_live_images(self):
         return self.manager.list_blessed(self)
 
     def export(self):
@@ -415,6 +369,11 @@ class CoServerManager(servers.ServerManager):
         if not(hasattr(client, 'cobalt')):
             setattr(client, 'cobalt', self)
 
+        # We also attach to the client as 'gridcentric' to be backwards
+        # compatible.
+        if not(hasattr(client, 'gridcentric')):
+            setattr(client, 'gridcentric', self)
+
     # Capabilities must be computed lazily because self.api.client isn't
     # available in __init__
 
@@ -430,11 +389,15 @@ class CoServerManager(servers.ServerManager):
         return set(requirements) <= set(self.capabilities)
 
     def get_info(self):
-        url = '/cobaltinfo'
+        url = '/gcinfo'
         res = self.api.client.get(url)[1]
         return res
 
-    def launch(self, server, target="0", name=None, user_data=None,
+    def launch(self, *args, **kwargs):
+        """ Deprecated. Please use start_live_image(...). """
+        self.start_live_image(*args, **kwargs)
+
+    def start_live_image(self, server, target="0", name=None, user_data=None,
                guest_params={}, security_groups=None, availability_zone=None,
                num_instances=1, key_name=None):
         params = {'target': target,
@@ -457,69 +420,56 @@ class CoServerManager(servers.ServerManager):
 
             params['user_data'] = base64.b64encode(real_user_data)
 
-        header, info = self._action("co_launch", base.getid(server), params)
+        header, info = self._action("gc_launch", base.getid(server), params)
         return [self.get(server['id']) for server in info]
 
-    def bless(self, server, name=None):
+    def bless(self, *args, **kwargs):
+        """ Deprecated. Please use create_live_image(...). """
+        self.create_live_image(*args, **kwargs)
+
+    def create_live_image(self, server, name=None):
         params = {'name': name}
-        header, info = self._action("co_bless", base.getid(server), params)
+        header, info = self._action("gc_bless", base.getid(server), params)
         return [self.get(server['id']) for server in info]
 
-    def discard(self, server):
-        return self._action("co_discard", base.getid(server))
+    def discard(self, *args, **kwargs):
+        """ Deprecated. Please use delete_live_iamge(...). """
+        self.delete_live_image(*args, **kwargs)
+
+    def delete_live_image(self, server):
+        return self._action("gc_discard", base.getid(server))
 
     def migrate(self, server, dest=None):
         params = {}
         if dest != None:
             params['dest'] = dest
-        return self._action("co_migrate", base.getid(server), params)
+        return self._action("gc_migrate", base.getid(server), params)
 
-    def list_launched(self, server):
-        header, info = self._action("co_list_launched", base.getid(server))
+    def list_launched(self, *args, **kwargs):
+        """ Deprecated. Please use list_live_image_servers(...)."""
+        self.list_live_image_servers(*args, **kwargs)
+
+    def list_live_image_servers(self, server):
+        header, info = self._action("gc_list_launched", base.getid(server))
         return [self.get(server['id']) for server in info]
 
-    def list_blessed(self, server):
-        header, info = self._action("co_list_blessed", base.getid(server))
+    def list_blessed(self, *args, **kwargs):
+        """ Deprecated. Please use list_live_images(...). """
+        self.list_live_images(*args, **kwargs)
+
+    def list_live_images(self, server):
+        header, info = self._action("gc_list_blessed", base.getid(server))
         return [self.get(server['id']) for server in info]
 
     def export(self, server):
-        header, info = self._action("co_export", server.id)
+        header, info = self._action("gc_export", server.id)
         return info
 
     def import_instance(self, data):
-        url = "/co-import-server"
+        url = "/gc-import-server"
         body = {'data': data}
 
         return self._create(url, body, 'server')
-
-    def create(self, name, image, flavor, meta=None, files=None,
-               reservation_id=None, min_count=None,
-               max_count=None, security_groups=None, userdata=None,
-               key_name=None, availability_zone=None,
-               block_device_mapping=None, nics=None, scheduler_hints=None,
-               config_drive=None, **kwargs):
-        if not min_count:
-            min_count = 1
-        if not max_count:
-            max_count = min_count
-        if min_count > max_count:
-            min_count = max_count
-
-        boot_args = [name, image, flavor]
-
-        boot_kwargs = dict(
-            meta=meta, files=files, userdata=userdata,
-            reservation_id=reservation_id, min_count=min_count,
-            max_count=max_count, security_groups=security_groups,
-            key_name=key_name, availability_zone=availability_zone,
-            scheduler_hints=scheduler_hints, config_drive=config_drive,
-            **kwargs)
-
-        resource_url = "/coservers"
-        boot_kwargs['nics'] = nics
-        response_key = "server"
-        return self._boot(resource_url, response_key, *boot_args,
-                **boot_kwargs)
 
     def install_agent(self, server, user, key_path, location=None,
                         version=None, ip=None):

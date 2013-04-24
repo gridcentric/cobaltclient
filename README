@@ -9,65 +9,99 @@ Command line usage
 After installing the operations provided by the Cobalt extension will be available to the 
 nova command line application:
 
-    # Display all of the available commands of the nova script. The gridcentric bless, launch, 
-    # list-blessed, list-launched, discard and gc-migrate are listed.
+    # Display all of the available commands of the nova script. The gridcentric live-image-create,
+    # live-image-start, live-image-list, live-image-servers, live-image-delete and co-migrate
+    # are listed.
     $ nova help
     
     # Doing nova help <command> on any of these commands will display how to use them in detail.
-    $ nova help bless
-    usage: nova bless <instance id>
-    
-    Bless an instance
-    
+    $ nova help live-image-create
+    usage: nova live-image-create [--name <name>] <instance>
+
+    Creates a new live-image from a running instance.
+
     Positional arguments:
-      <instance id>  ID of the instance to bless
+      <instance>     ID or name of the instance from which to create the live-
+                     image
+
+    Optional arguments:
+      --name <name>  The name of the live-image
+
     
-    $ nova help launch
-    usage: nova launch [--target <target memory>] [--params <key=value>]
-                       <blessed id>
-    
-    Launch a new instance
-    
+    $ nova help live-image-start
+    usage: nova live-image-start [--target <target memory>]
+                                 [--name <instance name>]
+                                 [--user_data <user-data>]
+                                 [--security-groups <security groups>]
+                                 [--availability-zone <availability zone>]
+                                 [--num-instances <number>]
+                                 [--key-name <key name>] [--params <key=value>]
+                                 <live image>
+
+    Start a new instance from a live-image.
+
     Positional arguments:
-      <blessed id>          ID of the blessed instance
-    
+      <live image>          ID or name of the live-image
+
     Optional arguments:
       --target <target memory>
                             The memory target of the launched instance
+      --name <instance name>
+                            The name of the launched instance
+      --user_data <user-data>
+                            User data file to pass to be exposed by the metadata
+                            server
+      --security-groups <security groups>
+                            comma separated list of security group names.
+      --availability-zone <availability zone>
+                            The availability zone for instance placement.
+      --num-instances <number>
+                            Launch multiple instances at a time
+      --key-name <key name>
+                            Key name of keypair that should be created earlier
+                            with the command keypair-add
       --params <key=value>  Guest parameters to send to vms-agent
-    
-    $ nova help discard
-    usage: nova discard <blessed id>
-    
-    Discard a blessed instance
-    
+
+
+    $ nova help live-image-delete
+    usage: nova live-image-delete <live-image>
+
+    Delete a live image.
+
     Positional arguments:
-      <blessed id>  ID of the blessed instance
+      <live-image>  ID or name of the live-image
+
     
     $ nova help co-migrate
-    usage: nova co-migrate <instance id> <destination host>
-    
-    Migrate an instance using VMS
-    
+    usage: nova co-migrate [--dest <destination host>] <instance>
+
+    Migrate an instance using VMS.
+
     Positional arguments:
-      <instance id>       ID of the instance to migrate
-      <destination host>  Host to migrate to
+      <instance>            ID or name of the instance to migrate
+
+    Optional arguments:
+      --dest <destination host>
+                            Host to migrate to
+
     
-    $ nova help list-launched
-    usage: nova list-launched <blessed id>
+   $ nova help live-image-servers
+   usage: nova live-image-servers <live-image>
+
+   List instances started from this live-image.
+
+   Positional arguments:
+     <live-image>  ID or name of the live-image
+
     
-    List instances launched from this blessed instance.
-    
+    $ nova help live-image-list
+    usage: nova live-image-list <server>
+
+    List the live images of this instance.
+
     Positional arguments:
-      <blessed id>  ID of the blessed instance
-    
-    $ nova help list-blessed
-    usage: nova list-blessed <server id>
-    
-    List instances blessed from this instance.
-    
-    Positional arguments:
-      <server id>  ID of the instance
+      <server>  ID or name of the instance
+
     
 
 Scripting usage
@@ -100,7 +134,7 @@ The novaclient hooks can also be accessed directly using the python API.
             # server is no longer there.
             pass
 
-    # Boot a new server using flavor 1 and the image passed in as the first arguement.
+    # Boot a new server using flavor 1 and the image passed in as the first argument.
     image_id = sys.argv[1]
     flavor_id = 1
     server = novaclient.servers.create("Gridcentric instance",
@@ -108,20 +142,20 @@ The novaclient hooks can also be accessed directly using the python API.
                                   flavor_id)
     server = wait_for_status(server, "ACTIVE")
     
-    # Bless the server. This will return an instance of the blessed_server. We need to
-    # wait until the server becomes active.
-    blessed_server = novaclient.cobalt.bless(server)[0]
-    blessed_server = wait_for_status(blessed_server, "BLESSED")
+    # Create a live image of the server. This will return an instance of the blessed_server. We need to
+    # wait until the live image becomes active.
+    live_image = novaclient.cobalt.live_image_create(server)[0]
+    live_image = wait_for_status(live_image, "BLESSED")
     
-    # Launch a new server based off of the blessed one. Note that we can do this
-    # by either calling launch on the server itself, or passing the server into the
+    # Launch a new server based off of the live iamge. Note that we can do this
+    # by either calling start_live_image on the server itself, or passing the server into the
     # cobalt manager.
-    launched_server = blessed_server.launch()[0]
-    launched_server2 = novaclient.cobalt.launch(blessed_server)[0]
+    launched_server = live_image.start_live_image()[0]
+    launched_server2 = novaclient.cobalt.start_live_image(live_image)[0]
     
-    # list the servers that were launched from the blessed ones.
-    for s in blessed_server.list_launched():
-        print "Server %s was launched from %s" %(s.id, blessed_server.id)
+    # list the servers that were launched from the live_image.
+    for s in live_image.list_servers():
+        print "Server %s was launched from %s" %(s.id, live_image.id)
         
     # Delete the launched servers.
     launched_server2 = wait_for_status(launched_server2, "ACTIVE")
@@ -129,8 +163,8 @@ The novaclient hooks can also be accessed directly using the python API.
     launched_server = wait_for_status(launched_server, "ACTIVE")
     novaclient.servers.delete(launched_server)
 
-    # W need to ensure that the launched instances have been deleted before discarding
-    # the blessed instance.
+    # W need to ensure that the launched instances have been deleted before deleting
+    # the live image.
     wait_until_gone(launched_server2)
     wait_until_gone(launched_server)
 
@@ -139,4 +173,4 @@ The novaclient hooks can also be accessed directly using the python API.
     server.delete()
 
     # Discard the blessed server
-    blessed_server.discard()
+    live_image.delete_live_image()

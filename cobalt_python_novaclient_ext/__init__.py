@@ -42,6 +42,7 @@ CAPABILITIES = {'user-data': ['user-data'],
                 'bless-name': ['bless-name'],
                 'launch-key': ['launch-key'],
                 'import-export': ['import-export'],
+                'scheduler-hints': ['scheduler-hints'],
                 }
 
 def __pre_parse_args__():
@@ -112,6 +113,8 @@ def inherit_args(inherit_from_fn):
 @utils.arg('--num-instances', metavar='<number>', default='1', help='Launch multiple instances at a time')
 @utils.arg('--key-name', metavar='<key name>', default=None, help='Key name of keypair that should be created earlier with the command keypair-add')
 @utils.arg('--params', action='append', default=[], metavar='<key=value>', help='Guest parameters to send to vms-agent')
+@utils.arg('--hint', action='append', dest='_scheduler_hints', default=[], metavar='<key=value>',
+            help="Send arbitrary key/value pairs to the scheduler for custom use.")
 def do_live_image_start(cs, args):
     """Start a new instance from a live-image."""
     server = _find_server(cs, args.blessed_server)
@@ -136,6 +139,19 @@ def do_live_image_start(cs, args):
     else:
         availability_zone = None
 
+    scheduler_hints = {}
+    if args._scheduler_hints:
+        for hint in args._scheduler_hints:
+            key, _sep, value = hint.partition('=')
+            # NOTE(vish says): multiple copies of the same hint will result in
+            # a list of values
+            if key in hints:
+                if isinstance(scheduler_hints[key], basestring):
+                    scheduler_hints[key] = [scheduler_hints[key]]
+                scheduler_hints[key] += [value]
+            else:
+                scheduler_hints[key] = value
+
     launch_servers = cs.cobalt.start_live_image(server,
         target=args.target,
         name=args.name,
@@ -144,7 +160,8 @@ def do_live_image_start(cs, args):
         security_groups=security_groups,
         availability_zone=availability_zone,
         num_instances=int(args.num_instances),
-        key_name=args.key_name)
+        key_name=args.key_name,
+        scheduler_hints=scheduler_hints)
 
     for server in launch_servers:
         _print_server(cs, server)
@@ -309,7 +326,7 @@ class CoServer(servers.Server):
 
     def start_live_image(self, target="0", name=None, user_data=None, guest_params={},
                security_groups=None, availability_zone=None, num_instances=1,
-               key_name=None):
+               key_name=None, scheduler_hints={}):
         return self.manager.launch(self,
                                    target=target,
                                    name=name,
@@ -318,7 +335,8 @@ class CoServer(servers.Server):
                                    security_groups=security_groups,
                                    availability_zone=availability_zone,
                                    num_instances=num_instances,
-                                   key_name=key_name)
+                                   key_name=key_name,
+                                   scheduler_hints=scheduler_hints)
 
     def bless(self, *args, **kwargs):
         """ Deprecated. Please use create_live_image(...). """
@@ -399,11 +417,12 @@ class CoServerManager(servers.ServerManager):
 
     def start_live_image(self, server, target="0", name=None, user_data=None,
                guest_params={}, security_groups=None, availability_zone=None,
-               num_instances=1, key_name=None):
+               num_instances=1, key_name=None, scheduler_hints={}):
         params = {'target': target,
                   'guest': guest_params,
                   'security_groups': security_groups,
                   'availability_zone': availability_zone,
+                  'scheduler_hints': scheduler_hints,
                   'num_instances': num_instances,
                   'key_name': key_name}
 

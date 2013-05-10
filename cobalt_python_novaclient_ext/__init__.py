@@ -26,6 +26,7 @@ import sys
 
 from novaclient import utils
 from novaclient import base
+from novaclient import exceptions
 from novaclient.v1_1 import servers
 from novaclient.v1_1 import shell
 
@@ -103,12 +104,11 @@ def inherit_args(inherit_from_fn):
     return do_inherit
 
 #### ACTIONS ####
-@utils.arg('blessed_server', metavar='<live image>', help="ID or name of the live-image")
-@utils.arg('--target', metavar='<target memory>', default='0', help="The memory target of the launched instance")
-@utils.arg('--name', metavar='<instance name>', default=None, help='The name of the launched instance')
-@utils.arg('--user_data', metavar='<user-data>', default=None,
+@utils.arg('name', metavar='<name>', help='The name for the new server')
+@utils.arg('--live-image', metavar='<live image>', help="Live-image ID (see 'nova live-image-list')")
+@utils.arg('--user-data', metavar='<user-data>', default=None,
            help='User data file to pass to be exposed by the metadata server')
-@utils.arg('--security-groups', metavar='<security groups>', default=None, help='comma separated list of security group names.')
+@utils.arg('--security-groups', metavar='<security groups>', default=None, help='Comma separated list of security group names.')
 @utils.arg('--availability-zone', metavar='<availability zone>', default=None, help='The availability zone for instance placement.')
 @utils.arg('--num-instances', metavar='<number>', default='1', help='Launch multiple instances at a time')
 @utils.arg('--key-name', metavar='<key name>', default=None, help='Key name of keypair that should be created earlier with the command keypair-add')
@@ -117,7 +117,9 @@ def inherit_args(inherit_from_fn):
             help="Send arbitrary key/value pairs to the scheduler for custom use.")
 def do_live_image_start(cs, args):
     """Start a new instance from a live-image."""
-    server = _find_server(cs, args.blessed_server)
+    if not args.live_image:
+        raise exceptions.CommandError("you need to provide a live-image ID")
+    server = _find_server(cs, args.live_image)
     guest_params = {}
     for param in args.params:
         components = param.split("=")
@@ -166,13 +168,24 @@ def do_live_image_start(cs, args):
     for server in launch_servers:
         _print_server(cs, server)
 
-@inherit_args(do_live_image_start)
+@utils.arg('live_image', metavar='<live image>', help="Live-image ID (see 'nova live-image-list')")
+@utils.arg('--name', metavar='<name>', default=None, help='The name for the new server')
+@utils.arg('--target', metavar='<target memory>', default='0', help="The memory target of the launched instance")
+@utils.arg('--user-data', metavar='<user-data>', default=None,
+           help='User data file to pass to be exposed by the metadata server')
+@utils.arg('--security-groups', metavar='<security groups>', default=None, help='Comma separated list of security group names.')
+@utils.arg('--availability-zone', metavar='<availability zone>', default=None, help='The availability zone for instance placement.')
+@utils.arg('--num-instances', metavar='<number>', default='1', help='Launch multiple instances at a time')
+@utils.arg('--key-name', metavar='<key name>', default=None, help='Key name of keypair that should be created earlier with the command keypair-add')
+@utils.arg('--params', action='append', default=[], metavar='<key=value>', help='Guest parameters to send to vms-agent')
+@utils.arg('--hint', action='append', dest='_scheduler_hints', default=[], metavar='<key=value>',
+            help="Send arbitrary key/value pairs to the scheduler for custom use.")
 def do_launch(cs, args):
     """DEPRECATED! Use live-image-start instead."""
     do_live_image_start(cs, args)
 
-@utils.arg('server', metavar='<instance>', help="ID or name of the instance from which to create the live-image")
-@utils.arg('--name', metavar='<name>', default=None, help="The name of the live-image")
+@utils.arg('server', metavar='<instance>', help="Name or ID of server.")
+@utils.arg('name', metavar='<name>', help="Name of live-image.")
 def do_live_image_create(cs, args):
     """Creates a new live-image from a running instance."""
     server = _find_server(cs, args.server)
@@ -180,15 +193,16 @@ def do_live_image_create(cs, args):
     for server in blessed_servers:
         _print_server(cs, server)
 
-@inherit_args(do_live_image_create)
+@utils.arg('server', metavar='<instance>', help="Name or ID of server.")
+@utils.arg('--name', metavar='<name>', default=None, help="Name of live-image.")
 def do_bless(cs, args):
     """DEPRECATED! Use live-image-create instead."""
     do_live_image_create(cs, args)
 
-@utils.arg('blessed_server', metavar='<live-image>', help="ID or name of the live-image")
+@utils.arg('live_image', metavar='<live-image>', help="ID or name of the live-image")
 def do_live_image_delete(cs, args):
     """Delete a live image."""
-    server = _find_server(cs, args.blessed_server)
+    server = _find_server(cs, args.live_image)
     cs.cobalt.delete_live_image(server)
 
 @inherit_args(do_live_image_delete)
@@ -214,10 +228,10 @@ def _print_list(servers):
     formatters = {'Networks':utils._format_servers_list_networks}
     utils.print_list(servers, columns, formatters)
 
-@utils.arg('blessed_server', metavar='<live-image>', help="ID or name of the live-image")
+@utils.arg('live_image', metavar='<live-image>', help="ID or name of the live-image")
 def do_live_image_servers(cs, args):
     """List instances started from this live-image."""
-    server = _find_server(cs, args.blessed_server)
+    server = _find_server(cs, args.live_image)
     _print_list(cs.cobalt.list_live_image_servers(server))
 
 @inherit_args(do_live_image_servers)

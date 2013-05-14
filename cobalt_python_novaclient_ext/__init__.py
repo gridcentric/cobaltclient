@@ -427,7 +427,7 @@ class CoServerManager(servers.ServerManager):
 
     def launch(self, *args, **kwargs):
         """ Deprecated. Please use start_live_image(...). """
-        self.start_live_image(*args, **kwargs)
+        return self.start_live_image(*args, **kwargs)
 
     def start_live_image(self, server, target="0", name=None, user_data=None,
                guest_params={}, security_groups=None, availability_zone=None,
@@ -458,7 +458,7 @@ class CoServerManager(servers.ServerManager):
 
     def bless(self, *args, **kwargs):
         """ Deprecated. Please use create_live_image(...). """
-        self.create_live_image(*args, **kwargs)
+        return self.create_live_image(*args, **kwargs)
 
     def create_live_image(self, server, name=None):
         params = {'name': name}
@@ -467,7 +467,7 @@ class CoServerManager(servers.ServerManager):
 
     def discard(self, *args, **kwargs):
         """ Deprecated. Please use delete_live_iamge(...). """
-        self.delete_live_image(*args, **kwargs)
+        return self.delete_live_image(*args, **kwargs)
 
     def delete_live_image(self, server):
         return self._action("gc_discard", base.getid(server))
@@ -480,7 +480,7 @@ class CoServerManager(servers.ServerManager):
 
     def list_launched(self, *args, **kwargs):
         """ Deprecated. Please use list_live_image_servers(...)."""
-        self.list_live_image_servers(*args, **kwargs)
+        return self.list_live_image_servers(*args, **kwargs)
 
     def list_live_image_servers(self, server):
         header, info = self._action("gc_list_launched", base.getid(server))
@@ -488,7 +488,7 @@ class CoServerManager(servers.ServerManager):
 
     def list_blessed(self, *args, **kwargs):
         """ Deprecated. Please use list_live_images(...). """
-        self.list_live_images(*args, **kwargs)
+        return self.list_live_images(*args, **kwargs)
 
     def list_live_images(self, server):
         header, info = self._action("gc_list_blessed", base.getid(server))

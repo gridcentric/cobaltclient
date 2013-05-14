@@ -36,4 +36,5 @@ setup(name='cobalt_python_novaclient_ext',
       author_email='support@gridcentric.com',
       url='http://www.gridcentric.com/',
       install_requires=['python-novaclient'],
-      packages=['cobalt_python_novaclient_ext'])
+      packages=['cobalt_python_novaclient_ext'],
+      classifiers=['License :: OSI Approved :: Apache Software License'])

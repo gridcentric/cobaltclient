@@ -147,7 +147,7 @@ def do_live_image_start(cs, args):
             key, _sep, value = hint.partition('=')
             # NOTE(vish says): multiple copies of the same hint will result in
             # a list of values
-            if key in hints:
+            if key in scheduler_hints:
                 if isinstance(scheduler_hints[key], basestring):
                     scheduler_hints[key] = [scheduler_hints[key]]
                 scheduler_hints[key] += [value]

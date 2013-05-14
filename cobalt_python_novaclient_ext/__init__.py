@@ -44,6 +44,7 @@ CAPABILITIES = {'user-data': ['user-data'],
                 'launch-key': ['launch-key'],
                 'import-export': ['import-export'],
                 'scheduler-hints': ['scheduler-hints'],
+                'install-policy': ['install-policy'],
                 }
 
 def __pre_parse_args__():
@@ -294,6 +295,15 @@ def do_live_image_import(cs, args):
     server = cs.cobalt.import_instance(data)
     _print_server(cs, server)
 
+@utils.arg('policy_filename', metavar='<policy-filename>',
+           help='Path to file containing vmspolicyd policy definitions')
+@utils.arg('--wait', dest='wait', action='store_true', default=False,
+           help='Block until the new policy has been successfully installed on all hosts')
+def do_install_policy(cs, args):
+    """Distribute policy definitions to all cobalt hosts."""
+    with open(args.policy_filename, 'r') as policy_file:
+        cs.cobalt.install_policy(policy_file.read(), args.wait)
+
 @utils.arg('server', metavar='<instance>', help="ID or name of the instance to install on")
 @utils.arg('--user',
      default='root',
@@ -503,6 +513,15 @@ class CoServerManager(servers.ServerManager):
         body = {'data': data}
 
         return self._create(url, body, 'server')
+
+    def install_policy(self, policy_ini_string, wait):
+        url = "/gcpolicy"
+        body = {
+            "policy_ini_string": policy_ini_string,
+            "wait": wait,
+        }
+
+        return self.api.client.post(url, body=body)
 
     def install_agent(self, server, user, key_path, location=None,
                         version=None, ip=None):

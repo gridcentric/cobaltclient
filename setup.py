@@ -37,4 +37,13 @@ setup(name='cobalt_python_novaclient_ext',
       url='http://www.gridcentric.com/',
       install_requires=['python-novaclient'],
       packages=['cobalt_python_novaclient_ext'],
-      classifiers=['License :: OSI Approved :: Apache Software License'])
+      classifiers=[
+        "Development Status :: 5 - Production/Stable",
+        "Environment :: Console",
+        "Environment :: OpenStack",
+        "Intended Audience :: Developers",
+        "Intended Audience :: Information Technology",
+        "License :: OSI Approved :: Apache Software License",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python"
+      ])

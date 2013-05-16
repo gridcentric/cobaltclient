@@ -155,7 +155,7 @@ def do_live_image_start(cs, args):
                 scheduler_hints[key] = value
 
     launch_servers = cs.cobalt.start_live_image(server,
-        target=args.target,
+        target=0,
         name=args.name,
         user_data=user_data,
         guest_params=guest_params,

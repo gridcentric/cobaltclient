@@ -45,6 +45,7 @@ CAPABILITIES = {'user-data': ['user-data'],
                 'import-export': ['import-export'],
                 'scheduler-hints': ['scheduler-hints'],
                 'install-policy': ['install-policy'],
+                'supports-volumes': ['supports-volumes'],
                 }
 
 def __pre_parse_args__():

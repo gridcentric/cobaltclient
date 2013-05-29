@@ -156,7 +156,6 @@ def do_live_image_start(cs, args):
                 scheduler_hints[key] = value
 
     launch_servers = cs.cobalt.start_live_image(server,
-        target=0,
         name=args.name,
         user_data=user_data,
         guest_params=guest_params,
@@ -171,7 +170,6 @@ def do_live_image_start(cs, args):
 
 @utils.arg('live_image', metavar='<live image>', help="Live-image ID (see 'nova live-image-list')")
 @utils.arg('--name', metavar='<name>', default=None, help='The name for the new server')
-@utils.arg('--target', metavar='<target memory>', default='0', help="The memory target of the launched instance")
 @utils.arg('--user-data', metavar='<user-data>', default=None,
            help='User data file to pass to be exposed by the metadata server')
 @utils.arg('--security-groups', metavar='<security groups>', default=None, help='Comma separated list of security group names.')
@@ -348,7 +346,7 @@ class CoServer(servers.Server):
         """ Deprecated. Please use the start_live_image(...). """
         return self.start_live_image(*args, **kwargs)
 
-    def start_live_image(self, target="0", name=None, user_data=None, guest_params={},
+    def start_live_image(self, target=None, name=None, user_data=None, guest_params={},
                security_groups=None, availability_zone=None, num_instances=1,
                key_name=None, scheduler_hints={}):
         return self.manager.launch(self,
@@ -439,11 +437,13 @@ class CoServerManager(servers.ServerManager):
         """ Deprecated. Please use start_live_image(...). """
         return self.start_live_image(*args, **kwargs)
 
-    def start_live_image(self, server, target="0", name=None, user_data=None,
+    def start_live_image(self, server, target=None, name=None, user_data=None,
                guest_params={}, security_groups=None, availability_zone=None,
                num_instances=1, key_name=None, scheduler_hints={}):
-        params = {'target': target,
-                  'guest': guest_params,
+        # NOTE: We no longer support target in the backend, so this
+        # parameter is silent dropped. It exists only in the kwargs
+        # so as not to break existing client.
+        params = {'guest': guest_params,
                   'security_groups': security_groups,
                   'availability_zone': availability_zone,
                   'scheduler_hints': scheduler_hints,

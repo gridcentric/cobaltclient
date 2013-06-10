@@ -48,6 +48,19 @@ CAPABILITIES = {'user-data': ['user-data'],
                 'supports-volumes': ['supports-volumes'],
                 }
 
+CAPS_HELP = {'user-data': 'Live-image-start will honor --user-data.',
+             'launch-name': 'Live-image-start will honor --name.',
+             'security-groups': 'Live-image-start will honor --security-groups.',
+             'num-instances': 'Live-image-start will honor --num-instances.',
+             'availability-zone': 'Live-image-start will honor --availability-zone.',
+             'bless-name': 'Live-image-create will honor --name.',
+             'launch-key': 'Live-image-start will honor --key-name.',
+             'import-export': 'Live-image-import/export supported by API.',
+             'scheduler-hints': 'Live-image-start will honor --hint.',
+             'install-policy': 'Install-policy supported by API.',
+             'supports-volumes': 'Instances with volumes attached (boot or hotplug) supported for live-image-*.',
+            }
+
 def __pre_parse_args__():
     pass
 
@@ -55,14 +68,14 @@ def __post_parse_args__(args):
     pass
 
 def _print_server(cs, server, minimal=False):
-    # (dscannell): Note that the follow method was taken from the
-    # main novaclient code base. We duplicate it here to protect ourselves
+    # (dscannell): Note that the following method was taken from the main
+    # novaclient code base. We duplicate it here to protect ourselves from
     # changes in the method signatures between versions of the novaclient.
 
     # By default when searching via name we will do a
-    # findall(name=blah) and due a REST /details which is not the same
+    # findall(name=blah) and do a REST /details which is not the same
     # as a .get() and doesn't get the information about flavors and
-    # images. This fix it as we redo the call with the id which does a
+    # images. This fixes it as we redo the call with the id which does a
     # .get() to get all informations.
     if not 'flavor' in server._info:
         server = shell._find_server(cs, server.id)
@@ -302,6 +315,23 @@ def do_install_policy(cs, args):
     """Distribute policy definitions to all cobalt hosts."""
     with open(args.policy_filename, 'r') as policy_file:
         cs.cobalt.install_policy(policy_file.read(), args.wait)
+
+@utils.arg('--all', dest='all', action='store_true', default=False,
+           help='List all capabilities, enabled or not.')
+def do_cobalt_capabilities(cs, args):
+    """Display Cobalt capabilities supported by the API."""
+    caps = dict(CAPS_HELP)
+    # Watch out for sloppiness
+    for k in [ x for x in CAPABILITIES.keys() if x not in CAPS_HELP ]:
+        caps[k] = ''
+    if not args.all:
+        if not hasattr(cs.cobalt, 'capabilities'):
+            cs.cobalt.setup_capabilities()
+        elide = list(set(CAPABILITIES.keys()) - set(cs.cobalt.capabilities))
+        for k in elide:
+            del(caps[k])
+    for cap, help in caps.items():
+        print'    %-20s  %s' % (cap, help)
 
 @utils.arg('server', metavar='<instance>', help="ID or name of the instance to install on")
 @utils.arg('--user',

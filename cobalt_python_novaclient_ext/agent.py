@@ -20,7 +20,7 @@ import threading
 
 from subprocess import PIPE
 
-DEFAULT_LOCATION = "http://downloads.gridcentriclabs.com/packages/public/agent"
+DEFAULT_LOCATION = "http://downloads.gridcentriclabs.com/packages/agent/linux"
 
 TEST_SCRIPT = """
 exit 0
@@ -164,7 +164,7 @@ install_rpm_packages() {
 
 install_cirros_packages() {
     # Extract package contents.
-    wget -O - $1/vms-agent-%(version)s_$ARCH.tgz | gzip -d | $SUDO tar -xv -C /
+    curl -L $1/vms-agent-%(version)s_$ARCH.tgz | gzip -d | $SUDO tar -xv -C /
     $SUDO ln -sf /etc/init.d/vmsagent /etc/rc3.d/S99-vmsagent
     $SUDO /etc/init.d/vmsagent restart
 }

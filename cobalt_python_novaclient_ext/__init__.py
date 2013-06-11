@@ -212,15 +212,15 @@ def do_discard(cs, args):
 
 @utils.arg('server', metavar='<instance>', help="ID or name of the instance to migrate")
 @utils.arg('--dest', metavar='<destination host>', default=None, help="Host to migrate to")
-def do_co_migrate(cs, args):
+def do_cobalt_migrate(cs, args):
     """Migrate an instance using VMS."""
     server = _find_server(cs, args.server)
     cs.cobalt.migrate(server, args.dest)
 
-@inherit_args(do_co_migrate)
+@inherit_args(do_cobalt_migrate)
 def do_gc_migrate(cs, args):
-    """DEPRECATED! Use co-migrate instead."""
-    do_co_migrate(cs, args)
+    """DEPRECATED! Use cobalt-migrate instead."""
+    do_cobalt_migrate(cs, args)
 
 def _print_list(servers):
     id_col = 'ID'
@@ -324,7 +324,7 @@ def do_install_policy(cs, args):
      default=None,
      metavar='<ip>',
      help="Instance IP address to use (defaults to first ssh-able).")
-def do_co_install_agent(cs, args):
+def do_cobalt_install_agent(cs, args):
     """Install the agent onto an instance."""
     server = _find_server(cs, args.server)
     server.install_agent(args.user,
@@ -333,10 +333,10 @@ def do_co_install_agent(cs, args):
                          version=args.agent_version,
                          ip=args.ip)
 
-@inherit_args(do_co_install_agent)
+@inherit_args(do_cobalt_install_agent)
 def do_gc_install_agent(cs, args):
-    """ DEPRECATED! Use co-install-agent instead."""
-    do_co_install_agent(cs, args)
+    """ DEPRECATED! Use cobalt-install-agent instead."""
+    do_cobalt_install_agent(cs, args)
 
 class CoServer(servers.Server):
     """

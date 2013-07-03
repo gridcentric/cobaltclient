@@ -208,14 +208,17 @@ class SecureShell(object):
             self.host = get_addrs(server)[0]
 
     def ssh_args(self):
-        return [
+        cmd = [
                 "ssh",
                 "-o", "UserKnownHostsFile=/dev/null",
                 "-o", "StrictHostKeyChecking=no",
-                "-o", "PasswordAuthentication=no",
-                "-i", self.key_path,
-                "%s@%s" % (self.user, self.host),
-                ]
+                "-o", "PasswordAuthentication=no"
+              ]
+        if self.key_path != None:
+            cmd += ["-i", self.key_path]
+
+        cmd += ["%s@%s" % (self.user, self.host)]
+        return cmd
 
     def call(self, script):
         # Our command is always a remote shell for execution.

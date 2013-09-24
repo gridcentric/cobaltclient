@@ -71,7 +71,7 @@ case $ARCH in
         ARCH=x86_32
         ;;
     *)
-        echo "Invalid architecture ($ARCH)."
+        echo "Invalid architecture ($ARCH)." 1>&2
         exit 1
 esac
 
@@ -128,13 +128,24 @@ install_deb_packages() {
 install_rpm_repo() {
     # If we're on CentOS, we'll need dkms support.
     if [ "$REPO" = "centos" ]; then
-        centos_version=$(cat /etc/redhat-release | cut -d' ' -f3 | cut -d'.' -f1)
-        centos_arch=$(uname -m)
-        tmpfile=$(mktemp)
-        wget -O $tmpfile http://packages.sw.be/rpmforge-release/rpmforge-release-0.5.2-2.el$centos_version.rf.$(uname -m).rpm
-        rpm -i $tmpfile || rpm -F $tmpfile
-        rm -f $tmpfile
-        rpm --import http://apt.sw.be/RPM-GPG-KEY.dag.txt
+        #check for dkms already installed
+        if ! rpm -qa | grep -q dkms; then
+            echo "Installing required EPEL repository..."
+            OS_VER=`cat /etc/redhat-release 2> /dev/null | awk '{print $3}'`
+            [ "$OS_VER" ] || OS_VER=`cat /etc/centos-release 2> /dev/null | awk '{print $3}'`
+ 
+            if [[ $OS_VER == 6* ]]; then
+                rpm -ivh http://dl.fedoraproject.org/pub/epel/6/`uname -m`/epel-release-6-8.noarch.rpm
+                rpm --import https://fedoraproject.org/static/0608B895.txt
+            elif [[ $OS_VER == 5* ]]; then
+                rpm -ivh http://dl.fedoraproject.org/pub/epel/5/`uname -m`/epel-release-5-4.noarch.rpm
+                rpm --import https://fedoraproject.org/static/217521F6.txt
+            fi
+            if ! rpm -qa | grep -q epel-release; then
+                echo "Please manually enable the EPEL repository. It is needed for vms-agent dependencies." 1>&2
+                exit 1
+            fi
+        fi
     fi
 
     # Import the repository key.

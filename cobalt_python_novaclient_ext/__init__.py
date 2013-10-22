@@ -93,11 +93,18 @@ def _print_server(cs, server, minimal=False):
         info['flavor'] = shell._find_flavor(cs, flavor_id).name
 
     image = info.get('image', {})
-    image_id = image.get('id', '')
-    if minimal:
-        info['image'] = image_id
-    else:
-        info['image'] = shell._find_image(cs, image_id).name
+    if image:
+        image_id = image.get('id', '')
+        if minimal:
+            info['image'] = image_id
+        else:
+            try:
+                info['image'] = '%s (%s)' \
+                        % (shell._find_image(cs, image_id).name, image_id)
+            except:
+                info['image'] = '%s (%s)' % ("Image not found", image_id)
+    else: # Booted from volume
+        info['image'] = "Attempt to boot from volume - no image supplied"
 
     info.pop('links', None)
     info.pop('addresses', None)

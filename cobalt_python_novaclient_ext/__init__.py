@@ -45,6 +45,7 @@ CAPABILITIES = {'user-data': ['user-data'],
                 'import-export': ['import-export'],
                 'scheduler-hints': ['scheduler-hints'],
                 'install-policy': ['install-policy'],
+                'get-policy': ['get-policy'],
                 'supports-volumes': ['supports-volumes'],
                 }
 
@@ -58,6 +59,7 @@ CAPS_HELP = {'user-data': 'Live-image-start will honor --user-data.',
              'import-export': 'Live-image-import/export supported by API.',
              'scheduler-hints': 'Live-image-start will honor --hint.',
              'install-policy': 'Install-policy supported by API.',
+             'get-policy': 'Get-policy supported by API.',
              'supports-volumes': 'Instances with volumes attached (boot or hotplug) supported for live-image-*.',
             }
 
@@ -112,7 +114,7 @@ def _print_server(cs, server, minimal=False):
     utils.print_dict(info)
 
 def _find_server(cs, server):
-    """ Returns a sever by name or ID. """
+    """ Returns a server by name or ID. """
     return utils.find_resource(cs.cobalt, server)
 
 def inherit_args(inherit_from_fn):
@@ -323,6 +325,13 @@ def do_install_policy(cs, args):
     with open(args.policy_filename, 'r') as policy_file:
         cs.cobalt.install_policy(policy_file.read(), args.wait)
 
+@utils.arg('server', metavar='<instance>', help="Name or ID of server.")
+def do_get_policy(cs, args):
+    """Get the applied domain policy from vmspolicyd."""
+    server = _find_server(cs, args.server)
+    for line in server.get_policy():
+        print line
+
 @utils.arg('--all', dest='all', action='store_true', default=False,
            help='List all capabilities, enabled or not.')
 def do_cobalt_capabilities(cs, args):
@@ -436,6 +445,9 @@ class CoServer(servers.Server):
                         version=None, ip=None):
         self.manager.install_agent(self, user, key_path, location=location,
                                     version=version, ip=ip)
+
+    def get_policy(self):
+        return self.manager.get_policy(self)
 
 class CoServerManager(servers.ServerManager):
     resource_class = CoServer
@@ -560,6 +572,10 @@ class CoServerManager(servers.ServerManager):
         }
 
         return self.api.client.post(url, body=body)
+
+    def get_policy(self, server):
+        header, info = self._action("co_get_policy", base.getid(server))
+        return info
 
     def install_agent(self, server, user, key_path, location=None,
                         version=None, ip=None):

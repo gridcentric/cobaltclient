@@ -47,6 +47,7 @@ CAPABILITIES = {'user-data': ['user-data'],
                 'install-policy': ['install-policy'],
                 'get-policy': ['get-policy'],
                 'supports-volumes': ['supports-volumes'],
+                'launch-nics': ['launch-nics'],
                 }
 
 CAPS_HELP = {'user-data': 'Live-image-start will honor --user-data.',
@@ -61,6 +62,7 @@ CAPS_HELP = {'user-data': 'Live-image-start will honor --user-data.',
              'install-policy': 'Install-policy supported by API.',
              'get-policy': 'Get-policy supported by API.',
              'supports-volumes': 'Instances with volumes attached (boot or hotplug) supported for live-image-*.',
+             'launch-nics': 'Live-image-start will honor --nic',
             }
 
 def __pre_parse_args__():
@@ -117,6 +119,36 @@ def _find_server(cs, server):
     """ Returns a server by name or ID. """
     return utils.find_resource(cs.cobalt, server)
 
+def parse_nics_arg(arg_nics):
+    """
+    Taken from python-novaclient to parse the nic argument to live-image-start
+    the same way novalcient parses it for 'boot'.
+    """
+    nics = []
+    for nic_str in arg_nics:
+        err_msg = ("Invalid nic argument '%s'. Nic arguments must be of the "
+                   "form --nic <net-id=net-uuid,v4-fixed-ip=ip-addr,"
+                   "port-id=port-uuid>, with at minimum net-id or port-id "
+                   "specified." % nic_str)
+        nic_info = {"net-id": "", "v4-fixed-ip": "", "port-id": ""}
+
+        for kv_str in nic_str.split(","):
+            try:
+                k, v = kv_str.split("=", 1)
+            except ValueError as e:
+                raise exceptions.CommandError(err_msg)
+
+            if k in nic_info:
+                nic_info[k] = v
+            else:
+                raise exceptions.CommandError(err_msg)
+
+        if not nic_info['net-id'] and not nic_info['port-id']:
+            raise exceptions.CommandError(err_msg)
+
+        nics.append(nic_info)
+    return nics
+
 def inherit_args(inherit_from_fn):
     """Decorator to inherit all of the utils.arg decorated agruments from
     another function.
@@ -139,6 +171,18 @@ def inherit_args(inherit_from_fn):
 @utils.arg('--params', action='append', default=[], metavar='<key=value>', help='Guest parameters to send to vms-agent')
 @utils.arg('--hint', action='append', dest='_scheduler_hints', default=[], metavar='<key=value>',
             help="Send arbitrary key/value pairs to the scheduler for custom use.")
+@utils.arg('--nic',
+    metavar="<net-id=net-uuid,v4-fixed-ip=ip-addr,port-id=port-uuid>",
+    action='append',
+    dest='nics',
+    default=[],
+    help="Create a NIC on the server. "
+         "Specify option multiple times to create multiple NICs. "
+         "net-id: attach NIC to network with this UUID "
+         "(required if no port-id), "
+         "v4-fixed-ip: IPv4 fixed address for NIC (optional), "
+         "port-id: attach NIC to port with this UUID "
+         "(required if no net-id)")
 def do_live_image_start(cs, args):
     """Start a new instance from a live-image."""
     if not args.live_image:
@@ -178,6 +222,8 @@ def do_live_image_start(cs, args):
             else:
                 scheduler_hints[key] = value
 
+    nics = parse_nics_arg(args.nics)
+
     launch_servers = cs.cobalt.start_live_image(server,
         name=args.name,
         user_data=user_data,
@@ -186,7 +232,8 @@ def do_live_image_start(cs, args):
         availability_zone=availability_zone,
         num_instances=int(args.num_instances),
         key_name=args.key_name,
-        scheduler_hints=scheduler_hints)
+        scheduler_hints=scheduler_hints,
+        networks=nics)
 
     for server in launch_servers:
         _print_server(cs, server)
@@ -204,6 +251,7 @@ def do_live_image_start(cs, args):
             help="Send arbitrary key/value pairs to the scheduler for custom use.")
 def do_launch(cs, args):
     """DEPRECATED! Use live-image-start instead."""
+    args.nics = []
     do_live_image_start(cs, args)
 
 @utils.arg('server', metavar='<instance>', help="Name or ID of server.")
@@ -395,7 +443,7 @@ class CoServer(servers.Server):
 
     def start_live_image(self, target=None, name=None, user_data=None, guest_params={},
                security_groups=None, availability_zone=None, num_instances=1,
-               key_name=None, scheduler_hints={}):
+               key_name=None, scheduler_hints={}, networks=None):
         return self.manager.launch(self,
                                    target=target,
                                    name=name,
@@ -405,7 +453,8 @@ class CoServer(servers.Server):
                                    availability_zone=availability_zone,
                                    num_instances=num_instances,
                                    key_name=key_name,
-                                   scheduler_hints=scheduler_hints)
+                                   scheduler_hints=scheduler_hints,
+                                   networks=networks)
 
     def bless(self, *args, **kwargs):
         """ Deprecated. Please use create_live_image(...). """
@@ -489,7 +538,8 @@ class CoServerManager(servers.ServerManager):
 
     def start_live_image(self, server, target=None, name=None, user_data=None,
                guest_params={}, security_groups=None, availability_zone=None,
-               num_instances=1, key_name=None, scheduler_hints={}):
+               num_instances=1, key_name=None, scheduler_hints={},
+               networks=None):
         # NOTE: We no longer support target in the backend, so this
         # parameter is silent dropped. It exists only in the kwargs
         # so as not to break existing client.
@@ -512,6 +562,23 @@ class CoServerManager(servers.ServerManager):
                 real_user_data = user_data
 
             params['user_data'] = base64.b64encode(real_user_data)
+
+        # (dscannell): Taken from python-novaclient
+        if networks is not None:
+            # NOTE(tr3buchet): nics can be an empty list
+            all_net_data = []
+            for nic_info in networks:
+                net_data = {}
+                # if value is empty string, do not send value in body
+                if nic_info.get('net-id'):
+                    net_data['uuid'] = nic_info['net-id']
+                if nic_info.get('v4-fixed-ip'):
+                    net_data['fixed_ip'] = nic_info['v4-fixed-ip']
+                if nic_info.get('port-id'):
+                    net_data['port'] = nic_info['port-id']
+                all_net_data.append(net_data)
+            if len(all_net_data) > 0:
+                params['networks'] = all_net_data
 
         header, info = self._action("gc_launch", base.getid(server), params)
         return [self.get(server['id']) for server in info]
